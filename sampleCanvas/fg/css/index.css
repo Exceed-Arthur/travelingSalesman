@@ -1,0 +1,44 @@
+* {
+	font-family: sans-serif;
+}
+
+#titleBox
+{
+	text-align: center;
+	font-size: 1.3rem;
+	font-weight: bold;
+
+}
+
+#gameWindow {
+	display: inline-flex;
+}
+
+#dotInfoWindow {
+	background: linear-gradient(rgb(170, 75, 107), rgb(107, 107, 131), rgb(59, 141, 153));
+}
+
+#distanceBoxWrapper {
+	display: inline-flex;
+}
+
+#distanceBox {
+	padding-left: 1rem;
+}
+#distanceBox {
+	padding-left: 1rem;
+}
+#pointsCountSelector {
+	display: inline-flex;
+
+}
+#pointsCountEmbed {
+	display: inline-flex;
+}
+#pointsBox2 {
+	border: 1px solid grey;
+}
+
+#buttonsStarterPack {
+	display: inline-flex;
+}
