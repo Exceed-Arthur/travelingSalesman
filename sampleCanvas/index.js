@@ -1,4 +1,4 @@
-const dotWindow = document.querySelector('canvas#dotWindow'); // Reference to main canvas element
+var dotWindow = document.querySelector('canvas#dotWindow'); // Reference to main canvas element
 const pointsSlider = document.querySelector('#pointsRange'); // Reference to main canvas element
 const dotInfoWindow = document.querySelector('canvas#dotInfoWindow'); // Reference to main canvas element
 const distanceBox = document.querySelector('p#distanceBox'); // Reference to main canvas element
@@ -7,7 +7,7 @@ const c = dotWindow.getContext("2d") ; // 2 Dimensional Space
 dotWindow.width = window.innerWidth/2;  // Main Container Boundary
 dotWindow.height = window.innerHeight/2; // Main Container Boundary
 //dotInfoWindow.height = window.innerHeight/2; // Main Container Boundary
-
+const MAXLEVEL = 1000;
 const gridSize = 100; // Number of grid units total
 var savedCanvas;
 class Point {
@@ -89,6 +89,8 @@ class GameStateManager {
 		this.mode = "auto"; // Other mode: "game"
 		this.level = 0;
 		this.connections = [];
+		this.points = [];
+		this.canvai = null;
 		var	connections__ = []
 		for (let i=0; i<points.length; i++) {
 			for (let j=0; j<points.length; j++) {
@@ -170,30 +172,42 @@ async function handleMouseMove(event) {
 
 }
 
-function handleMouseClick(){
-	console.log("MOUSE CLICK DETECTED!");
-	console.log("CLOSEST CONNECTION: ", gsm.closestConnection);
-}
+
 
 async function drawTempLineBetweenPoints(startPoint, endPoint) {
 	X = startPoint.position.x*dotWindow.width/gridSize;
 	Y = startPoint.position.y*dotWindow.height/gridSize;
-	endPoint = points_[i+1];
 	X2 = endPoint.position.x*dotWindow.width/gridSize;
 	Y2 = endPoint.position.y*dotWindow.height/gridSize;
 	counterDistance += distanceFormula(startPoint, endPoint);
 	distanceBox.innerText = counterDistance.toFixed(4);
 	c.beginPath();
 	c.moveTo(X, Y);
-	await sleep(100);
 	c.lineTo(X2, Y2);
 	var stroked = "#" + randInt(9) + randInt(9) + randInt(9) + randInt(9) + randInt(9) + '0';
 	c.strokeStyle = stroked;
 	c.stroke();
 }
 
+
+function handleMouseClover(){ // Click Hover
+	console.log("MOUSE CLICK DETECTED!");
+	gsm.canvai = dotWindow; // Save current state of canvas
+	console.log("CLOSEST CONNECTION: ", gsm.closestConnection);
+	console.log(gsm.connections);
+	//drawTempLineBetweenPoints(gsm.closestConnection.startPoint, gsm.closestConnection.endPoint);	
+	for (let i=0; i<gsm.connections.length; i++) {
+		drawTempLineBetweenPoints(gsm.connections[i].startPoint, gsm.connections[i].endPoint);	
+	
+	}
+}
+
+function clearLines() {
+	c.clearRect(0, 0, dotWindow.width, dotWindow.height);
+	drawTargets()
+}
+
 async function getClosestConnection(x, y) {
-	await sleep(1000);
 	let compPos = new Point({x: x, y: y});
 	var closestConnection = gsm.connections[0];
 	var distanceTo_ = 99999999;
@@ -263,10 +277,16 @@ function hasNeighbors(point, points) {
 }
 
 
-async function drawTargets(pointsToDraw) {
+async function drawTargets(pointsToDraw, pts=false) {
 	updatePointCount2();
 	console.log("Drawing targets...");
-	points = generatePoints(pointsToDraw);
+	if (pts) {
+		points = pts;
+		console.log("USING PREDT Points");
+	}
+	else {
+		points = generatePoints(pointsToDraw);
+	}
 	for (let i=0; i < points.length; i++) {
 		X = points[i].position.x*dotWindow.width/gridSize;
 
@@ -308,21 +328,21 @@ async function solveTargets() {
 	document.querySelector('p#pointsBox').innerText = "Solving " + points_.length.toString() + " points.";
 	disableElementVisibility("startButton");
 	for (let i=0; i < points_.length-1; i++) {
-			startPoint = points_[i];
-			X = startPoint.position.x*dotWindow.width/gridSize;
-			Y = startPoint.position.y*dotWindow.height/gridSize;
-			endPoint = points_[i+1];
-			X2 = endPoint.position.x*dotWindow.width/gridSize;
-			Y2 = endPoint.position.y*dotWindow.height/gridSize;
-			counterDistance += distanceFormula(startPoint, endPoint);
-			distanceBox.innerText = counterDistance.toFixed(4);
-			c.beginPath();
-			c.moveTo(X, Y);
-			await sleep(100);
-			c.lineTo(X2, Y2);
-			var stroked = "#" + randInt(9) + randInt(9) + randInt(9) + randInt(9) + randInt(9) + '0';
-			c.strokeStyle = stroked;
-			c.stroke();
+		startPoint = points_[i];
+		X = startPoint.position.x*dotWindow.width/gridSize;
+		Y = startPoint.position.y*dotWindow.height/gridSize;
+		endPoint = points_[i+1];
+		X2 = endPoint.position.x*dotWindow.width/gridSize;
+		Y2 = endPoint.position.y*dotWindow.height/gridSize;
+		counterDistance += distanceFormula(startPoint, endPoint);
+		distanceBox.innerText = counterDistance.toFixed(4);
+		c.beginPath();
+		c.moveTo(X, Y);
+		await sleep(100);
+		c.lineTo(X2, Y2);
+		var stroked = "#" + randInt(9) + randInt(9) + randInt(9) + randInt(9) + randInt(9) + '0';
+		c.strokeStyle = stroked;
+		c.stroke();
 		}
 	enableElementVisibility("startButton");
 	gsm.totalPathDistance = counterDistance;
@@ -350,16 +370,42 @@ function enableElementVisibility(id_) {
 class levelManager {
 	constructor() {
 		this.level = gsm.level;
+		this.pts = [];
 	}
-	async newLevel() {
-		const MAXLEVEL = 1000;
-		points = generatePoints(this.level + 1);
+
+	async saveLevelTargets(points___) {
+		this.pts = points___;
+	}
+
+	async reloadTargets() {
+		points = this.pts;
+		await drawTargets(((Math.pow((this.level / MAXLEVEL),2) + 3) * 2), points);
+
+	}
+
+	async newLevel(pts=false) {
+
+		if (pts) {
+			points = pts;
+		}
+		else {
+			points = generatePoints(this.level + 1);
+		}
 		c.clearRect(0, 0, dotWindow.width, dotWindow.height);
 		counterDistance = 0;
 		distanceBox.innerText = counterDistance.toFixed(4);
 		drawTargets((Math.pow((this.level / MAXLEVEL),2) + 3) * 2);
 		document.querySelector("#dotLevelTitle").innerText = "Level " + (gsm.level + 1).toString();
 		connectTargets();
+		this.saveLevelTargets(points);
+	}
+}
+
+function handleMouseUp() {
+	if (gsm.mode == "game") {
+		c.clearRect(0, 0, dotWindow.width, dotWindow.height);
+		dotWindow = gsm.canvai;
+		lvlMgr.reloadTargets();
 	}
 }
 
