@@ -139,7 +139,53 @@ function getMidPoint(startPoint, endPoint) {
 	return new Point({x:avgX, y: avgY});
 }
 
+function clearLines() {
+	c.clearRect(0, 0, dotWindow.width, dotWindow.height);
+}
+async function drawTempLineBetweenPoints(startPoint, endPoint) {
+	X = startPoint.position.x*dotWindow.width/gridSize;
+	Y = startPoint.position.y*dotWindow.height/gridSize;
+	X2 = endPoint.position.x*dotWindow.width/gridSize;
+	Y2 = endPoint.position.y*dotWindow.height/gridSize;
+	c.beginPath();
+	c.moveTo(X, Y);
+	c.lineTo(X2, Y2);
+	var stroked = "#" + randInt(9) + randInt(9) + randInt(9) + randInt(9) + randInt(9) + '0';
+	c.strokeStyle = stroked;
+	c.stroke();
+}
+function pointInConnection(point, connection) { 
+	console.log(point);
+	var px = point.position.x/dotWindow.width;
+	var py = point.position.y/dotWindow.width;
+	var minConX = Math.min(connection.startPoint.position.x, connection.endPoint.position.x);
+	var maxConX = Math.max(connection.startPoint.position.x, connection.endPoint.position.x);
+	var minConY = Math.min(connection.startPoint.position.y, connection.endPoint.position.y);
+	var maxConY = Math.max(connection.startPoint.position.y, connection.endPoint.position.y);
+	console.log(minConX, minConY, maxConY, maxConX, px, py);
+	if (minConX-10 <= px && maxConX+10 >= px) {
+		console.log("ASS");
+		if (minConY-10 <= py && maxConY+10 >= py) {
+			console.log("MATCHING HERE!", connection);
+			return true;	
+		}
+	}
+	return false;
+}
 
+function isInsideBounds(element_, point) {
+	rectangle_ = element_.getBoundingClientRect();
+	var minX = rectangle_.x;
+	var maxX = rectangle_.x + rectangle_.width;
+	var minY = rectangle_.y;
+	var maxY = rectangle_.y + rectangle_.height;
+	if (point.position.x <= maxX && point.position.x >=minX) {
+		if (point.position.y <= maxY && point.position.y >=minY) {
+			return true;
+		}	
+	}
+	return false; 
+}
 
 document.onmousemove = handleMouseMove;
 async function handleMouseMove(event) {
@@ -163,31 +209,26 @@ async function handleMouseMove(event) {
 	          (doc && doc.scrollTop  || body && body.scrollTop  || 0) -
 	          (doc && doc.clientTop  || body && body.clientTop  || 0 );
 	    }
+	    if (isInsideBounds(dotWindow, new Point({x: event.pageX, y: event.pageY}))) {
+	    	console.log(dotWindow.getBoundingClientRect());
+		    // Use event.pageX / event.pageY here
+		    var currentMousePosition = new Point({x: event.pageX, y: event.pageY});
+		    gsm.currentMousePosition = currentMousePosition;
+		    gsm.closestConnection = await getClosestConnection(event.pageX, event.pageY);
+		    if (pointInConnection(currentMousePosition, gsm.closestConnection)) {
+			    await drawTempLineBetweenPoints(gsm.closestConnection.startPoint, gsm.closestConnection.endPoint);
+			    await sleep(500);
+			    clearLines();
+			    lvlMgr.reloadTargets();
+			    return currentMousePosition;
+		    }
+	    }
 
-	    // Use event.pageX / event.pageY here
-	    var currentMousePosition = new Point({x: event.pageX, y: event.pageY});
-	    gsm.closestConnection = await getClosestConnection(event.pageX, event.pageY);
-	    return currentMousePosition;
 	}
 
 }
 
 
-
-async function drawTempLineBetweenPoints(startPoint, endPoint) {
-	X = startPoint.position.x*dotWindow.width/gridSize;
-	Y = startPoint.position.y*dotWindow.height/gridSize;
-	X2 = endPoint.position.x*dotWindow.width/gridSize;
-	Y2 = endPoint.position.y*dotWindow.height/gridSize;
-	counterDistance += distanceFormula(startPoint, endPoint);
-	distanceBox.innerText = counterDistance.toFixed(4);
-	c.beginPath();
-	c.moveTo(X, Y);
-	c.lineTo(X2, Y2);
-	var stroked = "#" + randInt(9) + randInt(9) + randInt(9) + randInt(9) + randInt(9) + '0';
-	c.strokeStyle = stroked;
-	c.stroke();
-}
 
 
 function handleMouseClover(){ // Click Hover
@@ -202,18 +243,13 @@ function handleMouseClover(){ // Click Hover
 	}
 }
 
-function clearLines() {
-	c.clearRect(0, 0, dotWindow.width, dotWindow.height);
-	drawTargets()
-}
+
 
 async function getClosestConnection(x, y) {
 	let compPos = new Point({x: x, y: y});
 	var closestConnection = gsm.connections[0];
 	var distanceTo_ = 99999999;
-
 	var closestDeltaDistance = distanceTo_;
-
 	for (let c=0; c<gsm.connections.length; c++) {
 		var midPoint = getMidPoint(gsm.connections[c].startPoint, gsm.connections[c].endPoint);
 		var distanceTo = distanceFormula(midPoint, compPos);
@@ -222,6 +258,7 @@ async function getClosestConnection(x, y) {
 			closestConnection = gsm.connections[c];
 		}
 	}
+
 	return closestConnection;
 	
 }
@@ -233,7 +270,6 @@ function generatePoints(count) {
 		points.push(new Point({x: randInt(gridSize-spatialModifier*2) + spatialModifier, y: randInt(gridSize-spatialModifier*3)+spatialModifier}));
 	}
 	console.log("Generating Points, # = ", count);
-	console.log(points);
 	return points;
 }
 
@@ -327,6 +363,7 @@ async function solveTargets() {
 	counterDistance = 0;
 	document.querySelector('p#pointsBox').innerText = "Solving " + points_.length.toString() + " points.";
 	disableElementVisibility("startButton");
+	disableElementVisibility("exposeConnections");
 	for (let i=0; i < points_.length-1; i++) {
 		startPoint = points_[i];
 		X = startPoint.position.x*dotWindow.width/gridSize;
@@ -345,6 +382,7 @@ async function solveTargets() {
 		c.stroke();
 		}
 	enableElementVisibility("startButton");
+	enableElementVisibility("exposeConnections");
 	gsm.totalPathDistance = counterDistance;
 	console.log("Counted total distance optimum, ", counterDistance);
 	
@@ -414,7 +452,6 @@ function startNewGame() {
 	gsm.mode = "game";
 
 	console.log("Starting new game...");
-	toggleElementVisibility("startButton");
 	toggleElementVisibility("dotLevelTitle");
 	toggleElementVisibility("pointsCountEmbed");
 	gsm.level = 0;
@@ -442,10 +479,7 @@ async function drawLoop() {
 		dotWindow.width = window.innerWidth/2;  // Main Container Boundary
 		dotWindow.height = window.innerHeight/2; // Main Container Boundary
 		points = generatePoints(pointsSlider.value);
-		console.log("unsorted", points);
 		points = sortByDistance(points);
-		console.log("sorting", points);
-
 		quadrants = [];
 		c.fillStyle = "white";
 		c.clearRect(0, 0, dotWindow.width, dotWindow.height);
