@@ -5,7 +5,7 @@
 		<div id="dotLevelTitle" style="display: none;">
 			Level
 		</div>
-	<canvas id="dotWindow" onmousedown="handleMouseClick()">
+	<canvas id="dotWindow">
 
 	</canvas>
 	<div id="GameSideBar">
@@ -26,7 +26,11 @@
 		<p id="modeBox">Mode: Auto-Solve</p>
 		<div id="buttonsStarterPack">
 			<button id="startButton" onclick="startNewGame()">Start New Game</button>
+			<button id="exposeConnections" onmousedown="handleMouseClover()" onmouseup="handleMouseUp()">View Connections</button>
 		</div>
+		<p id="mousePosBox"></p>
+		
+
 
 	</div>
 	<script src="index.js"></script>
