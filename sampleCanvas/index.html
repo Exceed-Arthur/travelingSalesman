@@ -13,7 +13,7 @@
 		<div class="pointsCountSelector">
 			<div id="pointsCountEmbed">
 				<p>Number of Points:</p>
-			    <input type="range" min="1" max="100" value="20" class="slider" id="pointsRange">
+			    <input type="range" min="1" max="100" value="5" class="slider" id="pointsRange">
 			    <p id="pointsBox2">9.9</p>
 			</div>
 		</div>
@@ -23,14 +23,28 @@
 			<p>Distance Traveled:<p>
 			<p id="distanceBox">0.0</p>
 		</div>
+
 		<p id="modeBox">Mode: Auto-Solve</p>
+		<p id="mousePosBox"></p>
+		<div id="nearestPointContainer">
+			<p id="nearestPointBox"></p>
+		</div>
+		<div id="PointsContainer">
+			<p></p>
+			<p id="pointsListBox"></p>
+		</div>
+		<div id="trackSecTable">
+			<table id="trackSection">
+				<tr style="display: inline-flex;">
+					<td id="trackSectionTitle">Visited Locations</td>
+					<td id="trackSectionTitle2">Distance</td>				
+				</tr>
+			</table>
+		</div>
 		<div id="buttonsStarterPack">
-			<button id="startButton" onclick="startNewGame()">Start New Game</button>
+			<button id="startButton" style="display:none;" onclick="startNewGame()">Start New Game</button>
 			<button id="exposeConnections" onmousedown="handleMouseClover()" onmouseup="handleMouseUp()">View Connections</button>
 		</div>
-		<p id="mousePosBox"></p>
-		
-
 
 	</div>
 	<script src="index.js"></script>

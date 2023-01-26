@@ -9,6 +9,9 @@
 	font-weight: bold;
 
 }
+#trackSection > tbody > tr {
+	font-size: 0.9rem;
+}
 
 #gameWindow {
 	display: inline-flex;
@@ -40,5 +43,33 @@
 }
 
 #buttonsStarterPack {
+	display: flex;
+}
+
+#nearestPointContainer {
+	display: inline-flex;
+}
+
+#trackSection {
+	text-align: center;
+}
+
+#trackSecTable {
+	padding-bottom: 2rem;
+	padding-top:1rem;
+}
+
+td#trackSectionTitle{
+	text-align: center;
+	padding-left: 2%;
+	min-width: 150px;
+}
+
+td#trackSectionTitle2{
+	text-align: center;
+	padding-left: 2%;
+}
+
+#trackSectionRow1 {
 	display: inline-flex;
 }

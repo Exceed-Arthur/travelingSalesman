@@ -11,6 +11,7 @@ const MAXLEVEL = 1000;
 const gridSize = 100; // Number of grid units total
 var savedCanvas;
 const ctx = dotWindow.getContext("2d");
+hideGameButtons();
 class Point {
 	constructor(position) {
 		this.position = position;
@@ -91,7 +92,9 @@ class GameStateManager {
 		this.level = 0;
 		this.connections = [];
 		this.points = [];
+		this.closestPoint = null;
 		this.canvai = null;
+		this.closestPoints = [];
 		this.currentColors = [];
 		this.connections = [];
 		this.currentMousePosition = new Point({x: 0, y: 0});
@@ -101,6 +104,29 @@ class GameStateManager {
 
 gsm = new GameStateManager();
 
+async function pointInConnection(point, connection) { 
+	rectangle_ = document.querySelector("#dotWindow").getBoundingClientRect();
+	var minX = rectangle_.x;
+	var maxX = rectangle_.x + rectangle_.width;
+	var minY = rectangle_.y;
+	var maxY = rectangle_.y + rectangle_.height;
+	var px = point.position.x;
+	var py = point.position.y;
+	var minConX = Math.min(connection.startPoint.position.x, connection.endPoint.position.x);
+	var maxConX = Math.max(connection.startPoint.position.x, connection.endPoint.position.x);
+	var minConY = Math.min(connection.startPoint.position.y, connection.endPoint.position.y);
+	var maxConY = Math.max(connection.startPoint.position.y, connection.endPoint.position.y);
+	if (minConX <= px && maxConX >= px) {
+		if (minConY <= py && maxConY >= py) {
+			console.log("MATCHING HERE!", connection);
+			console.log(px, py, minConX, minConY, maxConY, maxConX);
+			console.log(points);
+			console.log(gsm.connections);
+			return true;	
+		}
+	}
+	return false;
+}
 function connectTargets() {
 	connections__ = [];
 	colors2_ = [];
@@ -148,7 +174,6 @@ function clearLines() {
 	c.clearRect(0, 0, dotWindow.width, dotWindow.height);
 }
 async function drawTempLineBetweenPoints(connection, stroke=false) {
-
 	X = connection.startPoint.position.x*dotWindow.width/gridSize;
 	Y = connection.startPoint.position.y*dotWindow.height/gridSize;
 	X2 = connection.endPoint.position.x*dotWindow.width/gridSize;
@@ -165,34 +190,9 @@ async function drawTempLineBetweenPoints(connection, stroke=false) {
 	}
 	c.stroke();
 }
-async function pointInConnection(point, connection) { 
-	console.log(connection, "connection");
-	rectangle_ = document.querySelector("#dotWindow").getBoundingClientRect();
-	var minX = rectangle_.x;
-	var maxX = rectangle_.x + rectangle_.width;
-	var minY = rectangle_.y;
-	var maxY = rectangle_.y + rectangle_.height;
-	var px = ((point.position.x-minX)/dotWindow.width)*gridSize;
-	var py = ((point.position.y-minY)/dotWindow.height)*gridSize;
-	var minConX = Math.min(connection.startPoint.position.x, connection.endPoint.position.x);
-	var maxConX = Math.max(connection.startPoint.position.x, connection.endPoint.position.x);
-	var minConY = Math.min(connection.startPoint.position.y, connection.endPoint.position.y);
-	var maxConY = Math.max(connection.startPoint.position.y, connection.endPoint.position.y);
 
-	if (minConX <= px && maxConX >= px) {
-		if (minConY <= py && maxConY >= py) {
-			console.log("MATCHING HERE!", connection);
-			console.log(px, py, minConX, minConY, maxConY, maxConX);
-			console.log(points);
-			console.log(gsm.connections);
-			return true;	
-		}
-	}
-	return false;
-}
 
 async function drawLineBetweenPoints(startPoint, endPoint, stroke=false) {
-
 	X = startPoint.position.x*dotWindow.width/gridSize;
 	Y = startPoint.position.y*dotWindow.height/gridSize;
 	X2 = endPoint.position.x*dotWindow.width/gridSize;
@@ -227,20 +227,107 @@ function isInsideBounds(element_, point) {
 ctx.lineWidth = 165;
 
 function drawBoard(){
+		c.beginPath();
+		ctx.beginPath();
+		c.lineWidth = 1;
+		ctx.lineWidth = 1;
+    ctx.strokeStyle = "#D3D3D3";
+    c.strokeStyle = "#D3D3D3";
+
 		var p = 10;
-    for (var x = dotWindow.width; x >= 0; x -= 40) {
-        ctx.moveTo(0.5 + x + p, p);
-        ctx.lineTo(0.5 + x + p, dotWindow.height + p);
+    for (var x = 0; x <= dotWindow.width; x += dotWindow.width/10) {
+        ctx.moveTo(x + p, p);
+        ctx.lineTo(x + p, dotWindow.height + p);
+        c.stroke();
     }
 
-    for (var x = dotWindow.height; x >= 0; x -= 40) {
-        ctx.moveTo(p, 0.5 + x + p);
-        ctx.lineTo(dotWindow.width + p, 0.5 + x + p);
+    for (var x = 0; x <= dotWindow.height; x += dotWindow.width/10) {
+        ctx.moveTo(p, x + p);
+        ctx.lineTo(dotWindow.width  + p, x + p);
+        c.stroke();
     }
-    ctx.strokeStyle = "#D3D3D3";
-    ctx.lineWidth = 1;
-    ctx.stroke();
+
 }
+
+function pointToStr(point_) {
+	return "(" + closestPoint.position.x + ", " + closestPoint.position.x + ")"; 
+}
+
+function pointsToStr() {
+	return points.map(pointToStr);
+}
+
+
+function mouseToGridPos(mousePos) {
+	rectangle_ = document.querySelector("#dotWindow").getBoundingClientRect();
+	var minX = rectangle_.x;
+	var maxX = rectangle_.x + rectangle_.width;
+	var minY = rectangle_.y;
+	var maxY = rectangle_.y + rectangle_.height;
+	var px = ((mousePos.position.x-minX)/dotWindow.width)*gridSize;
+	var py = ((mousePos.position.y-minY)/dotWindow.height)*gridSize;
+
+	return new Point({x: px, y: py});
+}
+
+async function getNearestPoint(PointA) {
+	var ax = PointA.position.x;
+	var ay = PointA.position.y;
+	var closestDeltaDistance = gridSize;
+	var closestPoint = points[0];
+	for (p=0; p<points.length; p++) {
+		var distanceTo = distanceFormula(PointA, points[p]);
+		if (closestDeltaDistance >= distanceTo) {
+			closestDeltaDistance = distanceTo;
+			closestPoint = points[p];
+		}
+	}
+	gsm.closestPoint = closestPoint;
+	console.log("FRGGER");
+	document.querySelector("#nearestPointBox").innerText = "Nearest Point: (" + closestPoint.position.x + ", " + closestPoint.position.y + ")"; 
+
+	return closestPoint;
+}
+
+
+
+
+
+
+async function drawNearestConnections(mp) {
+	var pointo = await getNearestPoint(mp);
+	var remainingConns = await getRemainingConnectionsWithPoint(pointo);
+	var points3 = getPointsFromConnections(remainingConns);
+	points3.sort(sortPointsByDistanceLambda);
+	console.log(points3, "points3");
+	var nearestPointBridge = [points3[0], points3[1]];
+	gsm.closestConnection = await getClosestConnection(pointo);
+	console.log(gsm.closestConnection, "closest connection");
+	await sleep(500);
+	console.log(remainingConns);
+  // Use event.pageX / event.pageY here
+
+ 
+
+
+  rectangle_ = document.querySelector('#dotWindow').getBoundingClientRect();
+	var minX = rectangle_.x;
+	var maxX = rectangle_.x + rectangle_.width;
+	var minY = rectangle_.y;
+	var maxY = rectangle_.y + rectangle_.height;
+		var px = ((mp.position.x-minX)/dotWindow.width)*gridSize;
+	var py = ((mp.position.y-minY)/dotWindow.height)*gridSize;
+
+	for (let i=0; i<remainingConns.length; i++) {
+		var strokey = gsm.currentColors[gsm.connections.indexOf(remainingConns[i])];
+
+    await drawTempLineBetweenPoints(remainingConns[i], strokey);
+
+    await sleep(10);
+	}
+}
+				
+
 
 document.onmousemove = handleMouseMove;
 async function handleMouseMove(event) {
@@ -266,52 +353,162 @@ async function handleMouseMove(event) {
 	    }
 
 	    var np = new Point({x: event.pageX, y: event.pageY})
+	    gsm.currentMousePosition = np;
 	    if (isInsideBounds(dotWindow, np)) {
-		    // Use event.pageX / event.pageY here
-		    var currentMousePosition = np;
-		    gsm.currentMousePosition = currentMousePosition;
-		    rectangle_ = document.querySelector('#dotWindow').getBoundingClientRect();
-				var minX = rectangle_.x;
-				var maxX = rectangle_.x + rectangle_.width;
-				var minY = rectangle_.y;
-				var maxY = rectangle_.y + rectangle_.height;
-	   		var px = ((currentMousePosition.position.x-minX)/dotWindow.width)*gridSize;
-				var py = ((currentMousePosition.position.y-minY)/dotWindow.height)*gridSize;
-				gsm.closestConnection = await getClosestConnection(px, py);
-				console.log(px, py, "pointInConnection pre");
-		    if (await pointInConnection(new Point({x: px, y: py}), gsm.closestConnection) == true) {
-		    	var strokey = gsm.currentColors[gsm.connections.indexOf(gsm.closestConnection)];
-			    await drawTempLineBetweenPoints(gsm.closestConnection, strokey);
-			    await sleep(1250);
-			    clearLines();
+	    	
+	    	var mp = mouseToGridPos(np); // Mouse Position
 
-			    lvlMgr.reloadTargets();
-			    return currentMousePosition;
-		    }
-	    }
+	  		var currentMousePosition = np;
+	  		var newConn = await getClosestConnectionPoint(mp)
+	  		var oldConn = gsm.closestConnection;
+	  		gsm.closestConnection = newConn;
+				//await drawNearestConnections(mp);
+				if (gsm.closestConnection != null) {
+
+					
+					if (pointInConnection(mp, gsm.closestConnection)) {
+				    if (oldConn != newConn) {
+					    clearLines();
+					    drawBoard();
+					    lvlMgr.reloadTargets();
+						  await drawTempClosestConnection();
+						}
+					}
+				}
+		   }
+			var pointo = await getNearestPoint(mouseToGridPos(gsm.currentMousePosition));
+	    return gsm.currentMousePosition;
 
 	}
 
 }
 
 
+function hideGameButtons() {
+	disableElementVisibility("startButton");
+	disableElementVisibility("exposeConnections");
+	disableElementVisibility("PointsContainer");
+	disableElementVisibility("trackSection");
+	disableElementVisibility("trackSecTable");
 
+}
+
+function sortPointsByDistanceLambda(a, b) {
+  if (distanceFormula(a, gsm.closestPoint) > distanceFormula(b, gsm.closestPoint)) {
+    return -1;
+  }
+  if (distanceFormula(a, gsm.closestPoint) < distanceFormula(b, gsm.closestPoint))  {
+    return 1;
+  }
+  // a must be equal to b
+  return 0;
+}
+
+function sortPointsByDistanceLambdaGroup(a, b) {
+  if (distanceFormula(a, gsm.closestPoint) > distanceFormula(b, gsm.closestPoint)) {
+    return -1;
+  }
+  if (distanceFormula(a, gsm.closestPoint) < distanceFormula(b, gsm.closestPoint))  {
+    return 1;
+  }
+  // a must be equal to b
+  return 0;
+}
+
+
+
+function sortNearestPoints() {
+	gsm.closestPoints =
+	gsm.closestPoints.sort(sortPointsByDistanceLambda);
+}
+
+
+
+async function drawTempClosestConnection() {
+	await sleep(50);
+	var mp = mouseToGridPos(gsm.currentMousePosition);
+	console.log("evaluating closest connection drawing with ", mp);
+	gsm.closestConnection = await getClosestConnectionPoint(mp);
+	if (gsm.closestConnection != null) {
+		console.log(gsm);
+		console.log(gsm.closestConnection);	
+		drawTempLineBetweenPoints(gsm.closestConnection, gsm.currentColors[0]);
+	}
+}
 
 function handleMouseClover(){ // Click Hover
-	console.log("MOUSE CLICK DETECTED!");
 	gsm.canvai = dotWindow; // Save current state of canvas
-	console.log("CLOSEST CONNECTION: ", gsm.closestConnection, gsm.connections);
-	console.log(gsm.connections);
 	//drawTempLineBetweenPoints(gsm.closestConnection.startPoint, gsm.closestConnection.endPoint);	
 	for (let i=0; i<gsm.connections.length; i++) {
 		drawTempLineBetweenPoints(gsm.connections[i], stroke=gsm.currentColors[i]);	
-	
+		
 	}
 }
+
+function getPointsFromConnections(connections) {
+	var points3 = [];
+	for (let c=0; c<connections.length; c++) {
+		points3.push(connections[c].startPoint);			
+		points3.push(connections[c].endPoint);
+	}
+	return new Array(new Set(points3));
+	
+}
+
+async function getRemainingConnectionsWithPoint(pointA, pointType="start") {
+	var pointsFilt = [];
+	if (pointType == "start") {
+		for (let p=0; p<gsm.connections.length; p++) {
+			if (gsm.connections[p].startPoint.position == pointA.position) {
+				pointsFilt.push(gsm.connections[p]);
+			}
+		}
+	}
+	else if (pointType == "all") {
+		for (let p=0; p<points.length; p++) {
+			if (gsm.connections[p].startPoint.position == pointA.position || gsm.connections[p].endPoint.position == pointA.position) {
+				pointsFilt.push(gsm.connections[p]);
+			}
+		}
+	}
+
+	else if (pointType=="end") {
+		for (let p=0; p<points.length; p++) {
+			if (gsm.connections[p].endPoint.position == pointA.position) {
+				pointsFilt.push(gsm.connections[p]);
+			}
+		}
+	}
+	return pointsFilt;
+}
+
+
+
+async function getClosestConnections(pointA) {
+	var conns = await getConnectionsWithPoint(pointA, "start");
+	var conns2 = [];
+	for (let c=0; c<conns.length; c++) {
+		if (!(gsm.userPath.includes(conns[c]))) {
+			conns2.push(conns[c]);
+		}
+	}
+	return conns2;
+}
+
+function handleMouseClick(){ // Click Hover
+	console.log("MOUSE CLICK DETECTED!");
+	gsm.canvai = dotWindow; // Save current state of canvas
+
+
+	//drawTempLineBetweenPoints(gsm.closestConnection.startPoint, gsm.closestConnection.endPoint);	
+	
+}
+
 
 
 
 async function getClosestConnection(x, y) {
+
 	let compPos = new Point({x: x, y: y});
 	var closestConnection = null;
 	var distanceTo_ = 99999999;
@@ -322,7 +519,6 @@ async function getClosestConnection(x, y) {
 		if (distanceTo < closestDeltaDistance) {
 			closestDeltaDistance = distanceTo;
 			closestConnection = gsm.connections[c];
-
 		}
 	}
 	rectangle_ = document.getElementById("dotWindow").getBoundingClientRect();
@@ -332,10 +528,35 @@ async function getClosestConnection(x, y) {
 	var maxY = rectangle_.y + rectangle_.height;
 	var px = ((gsm.currentMousePosition.position.x-minX)/dotWindow.width)*gridSize;
 	var py = ((gsm.currentMousePosition.position.y-minY)/dotWindow.height)*gridSize;
-	console.log("getClosestConnection", closestConnection, closestDeltaDistance, compPos, "comp pos");
-	console.log(gsm.currentMousePosition);
-	var mp1 = gsm.currentMousePosition.position.x 
-	document.querySelector("#mousePosBox").innerText = "Mouse Position: (" + (px).toString() + ", " + (py).toString() + ")";
+	var mp1 = gsm.currentMousePosition.position.x;
+	console.log(compPos, "Yielded ", closestConnection);
+	document.querySelector("#mousePosBox").innerText = "Mouse Position: (" + (px.toFixed(2)).toString() + ", " + (py.toFixed(2)).toString() + ")";
+	return closestConnection;
+	
+}
+
+async function getClosestConnectionPoint(compPos) {
+	var closestConnection = null;
+	var distanceTo_ = 99999999;
+	var closestDeltaDistance = distanceTo_;
+	for (let c=0; c<gsm.connections.length; c++) {
+		var midPoint = getMidPoint(gsm.connections[c].startPoint, gsm.connections[c].endPoint);
+		var distanceTo = distanceFormula(midPoint, compPos);
+		if (distanceTo < closestDeltaDistance) {
+			closestDeltaDistance = distanceTo;
+			closestConnection = gsm.connections[c];
+		}
+	}
+	rectangle_ = document.getElementById("dotWindow").getBoundingClientRect();
+	var minX = rectangle_.x;
+	var maxX = rectangle_.x + rectangle_.width;
+	var minY = rectangle_.y;
+	var maxY = rectangle_.y + rectangle_.height;
+	var px = ((gsm.currentMousePosition.position.x-minX)/dotWindow.width)*gridSize;
+	var py = ((gsm.currentMousePosition.position.y-minY)/dotWindow.height)*gridSize;
+	var mp1 = gsm.currentMousePosition.position.x;
+	console.log(compPos, "Yielded ", closestConnection);
+	document.querySelector("#mousePosBox").innerText = "Mouse Position: (" + (px.toFixed(2)).toString() + ", " + (py.toFixed(2)).toString() + ")";
 	return closestConnection;
 	
 }
@@ -346,12 +567,12 @@ function generatePoints(count) {
 	for (let c=0; c< count; c++) {
 		points.push(new Point({x: randInt(gridSize-spatialModifier*2) + spatialModifier, y: randInt(gridSize-spatialModifier*3)+spatialModifier}));
 	}
-	console.log("Generating Points, # = ", count);
+
 	return points;
 }
 
 
-console.log(points);
+
 
 c.fillStyle = "#FF0000";
 
@@ -403,8 +624,6 @@ async function drawTargets(pointsToDraw, pts=false, colors=false) {
 	}
 	for (let i=0; i < points.length; i++) {
 		X = points[i].position.x*dotWindow.width/gridSize;
-
-
 		Y = points[i].position.y*dotWindow.height/gridSize;
 
 		var stroke = '#FF' + randInt(9) + randInt(9) + randInt(9) + '0';
@@ -438,6 +657,14 @@ slideElem.addEventListener("change", event => {
 	updatePointCount2();
 });
 
+function showGameButtons() {
+	enableElementVisibility("trackSection");
+	enableElementVisibility("exposeConnections");
+	enableElementVisibility("trackSecTable");
+	enableElementVisibility("nearestPointContainer");
+	enableElementVisibility("PointsContainer");
+}
+
 function updatePointCount2() {
 	pointsBox2.innerText = pointsSlider.value.toString();
 }
@@ -448,8 +675,7 @@ async function solveTargets() {
 	console.log("solving",points_);
 	counterDistance = 0;
 	document.querySelector('p#pointsBox').innerText = "Solving " + points_.length.toString() + " points.";
-	disableElementVisibility("startButton");
-	disableElementVisibility("exposeConnections");
+
 	for (let i=0; i < points_.length-1; i++) {
 		startPoint = points_[i];
 		X = startPoint.position.x*dotWindow.width/gridSize;
@@ -468,7 +694,7 @@ async function solveTargets() {
 		c.stroke();
 		}
 	enableElementVisibility("startButton");
-	enableElementVisibility("exposeConnections");
+
 	gsm.totalPathDistance = counterDistance;
 	console.log("Counted total distance optimum, ", counterDistance);
 	
@@ -524,8 +750,8 @@ class levelManager {
 		drawTargets((Math.pow((this.level / MAXLEVEL),2) + 3) * 2);
 		document.querySelector("#dotLevelTitle").innerText = "Level " + (gsm.level + 1).toString();
 		document.querySelector("#pointsBox").innerText = "Solving " + ((Math.pow((this.level / MAXLEVEL),2) + 3) * 2).toString() + " points.";
-
 		connectTargets();
+
 		this.saveLevelTargets(points);
 	}
 }
@@ -541,11 +767,15 @@ function handleMouseUp() {
 
 function startNewGame() {
 	gsm.mode = "game";
-
 	console.log("Starting new game...");
-	toggleElementVisibility("dotLevelTitle");
+
 	toggleElementVisibility("pointsCountEmbed");
+	disableElementVisibility("pointsCountEmbed");
+
+	showGameButtons();
 	gsm.level = 0;
+	enableElementVisibility("dotLevelTitle");
+
 	lvlMgr = new levelManager();
 	lvlMgr.newLevel();
 	document.querySelector("#modeBox").innerText = "Mode: Active Game"
@@ -577,10 +807,8 @@ async function drawLoop() {
 		await sleep(44);
 		drawBoard();
 		drawTargets(pointsSlider.value);
-
 		await sleep(400);
 		solveTargets();
-
 		await sleep(8000);
 	}	
 }
