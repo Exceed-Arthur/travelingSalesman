@@ -1,6 +1,0 @@
-Manage Window And State Via Window Handler and State Handler
-
-Windows -> MENU || CPU Solving || Unsolved || User Solving || Score Report // Level Handler
-
-States: UserIsSolving -> UserCompletedPath
-
