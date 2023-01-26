@@ -120,6 +120,7 @@ class GameStateManager {
 		this.closestPoints = [];
 		this.currentColors = [];
 		this.connections = [];
+		this.nestedPaths = [];
 		this.shortestPath = [];
 		this.possiblePathDistances = [];
 		this.currentMousePosition = new Point({x: 0, y: 0});
@@ -248,24 +249,24 @@ function isInsideBounds(element_, point) {
 
 ctx.lineWidth = 165;
 
-function drawBoard(){
+async function drawBoard(){
 		c.beginPath();
-		ctx.beginPath();
+		c.beginPath();
 		c.lineWidth = 1;
-		ctx.lineWidth = 1;
-    ctx.strokeStyle = "#D3D3D3";
+		c.lineWidth = 1;
+    c.strokeStyle = "#D3D3D3";
     c.strokeStyle = "#D3D3D3";
 
 		var p = 10;
     for (var x = 0; x <= dotWindow.width; x += dotWindow.width/10) {
-        ctx.moveTo(x + p, p);
-        ctx.lineTo(x + p, dotWindow.height + p);
+        c.moveTo(x + p, p);
+        c.lineTo(x + p, dotWindow.height + p);
         c.stroke();
     }
 
     for (var x = 0; x <= dotWindow.height; x += dotWindow.width/10) {
-        ctx.moveTo(p, x + p);
-        ctx.lineTo(dotWindow.width  + p, x + p);
+        c.moveTo(p, x + p);
+        c.lineTo(dotWindow.width  + p, x + p);
         c.stroke();
     }
 
@@ -322,7 +323,6 @@ async function drawNearestConnections(mp) {
 	points3.sort(sortPointsByDistanceLambda);
 	var nearestPointBridge = [points3[0], points3[1]];
 	gsm.closestConnection = await getClosestConnection(pointo);
-	await sleep(500);
 	console.log(remainingConns);
   // Use event.pageX / event.pageY here
 
@@ -342,7 +342,7 @@ async function drawNearestConnections(mp) {
 
     await drawTempLineBetweenPoints(remainingConns[i], strokey);
 
-    await sleep(10);
+
 	}
 }
 				
@@ -388,7 +388,7 @@ async function handleMouseMove(event) {
 					if (pointInConnection(mp, gsm.closestConnection)) {
 				    if (oldConn != newConn) {
 					    clearLines();
-					    //drawBoard();
+					    drawBoard();
 					    lvlMgr.reloadTargets();
 						  await drawTempClosestConnection();
 
@@ -721,8 +721,24 @@ async function buildPointNodes(path_) {
 	return nodeList;
 }
 
+
+function sortNumbers(a, b) {
+	//console.log(a, b, a>b);
+	if (a > b) {
+		return 1;
+	}
+	if (a < b) {
+		return -1;
+	}
+	return 0;
+}
+
+
+
+
 async function calculatePathDistance(pathNodes) {
 	var totalDistance = 0;
+	console.log(pathNodes, "path Nodes 766");
 	for (let p=0; p<pathNodes.length; p++) {
 		if (pathNodes[p].head != null) {
 			if (pathNodes[p].next != null) {
@@ -735,94 +751,99 @@ async function calculatePathDistance(pathNodes) {
 	if (totalDistance) {
 		if (!gsm.possiblePathDistances.includes(totalDistance)) {
 			gsm.possiblePathDistances.push(totalDistance);
+
 		}
 	}
 	return totalDistance;
 }
 
-function sortNumbers(a, b) {
-	return a-b;
-}
-
-
-async function permute(permutation) {
-  var length = permutation.length,
-      result = [permutation.slice()],
-      c = new Array(length).fill(0),
-      i = 1, k, p;
-
-  while (i < length) {
-    if (c[i] < i) {
-      k = i % 2 && c[i];
-      p = permutation[i];
-      permutation[i] = permutation[k];
-      permutation[k] = p;
-      ++c[i];
-      i = 1;
-      result.push(permutation.slice());
-    } else {
-      c[i] = 0;
-      ++i;
-    }
-  }
-  return result;
-}
-
-
 async function sortConnectionArrayDistanceMapLambda(a, b) {
 	// Takes two connection objects
+	console.log(a, b, "704");
 	var path1 = await pathFromConnectionArray(a);
 	var path2 = await pathFromConnectionArray(b);
 	var distanceP1 = await calculatePathDistance(await buildPointNodes(path1));
 	var distanceP2 = await calculatePathDistance(await buildPointNodes(path2));
-	if (distanceP1 < distanceP2) {
+	console.log(distanceP1, distanceP2, distanceP1>distanceP2, "791");
+	if (distanceP1 > distanceP2) {
 		return 1;
 	}
-	if (distanceP1 > distanceP2) {
+	if (distanceP1 < distanceP2) {
 		return -1;
 	}
 	return 0;
 }
 
 
+async function sortPathArrayDistanceMapLambda(a, b) {
+	// Takes two point (path) array objects
+		console.log(a, b, "804 initial arg sortpath array");
 
+	var distanceP1 = await calculatePathDistance(a);
+	var distanceP2 = await calculatePathDistance(b);
+	console.log(distanceP1, distanceP2, distanceP1>distanceP2, "808");
+	if (distanceP1 > distanceP2) {
+		return 1;
+	}
+	if (distanceP1 < distanceP2) {
+		return -1;
+	}
+	return 0;
+}
 
-async function solveTargets() {
-	var points_ = points;
-	gsm.totalPathDistance = 0;
-	counterDistance = 0;
-	connectTargets();
+async function buildPointNodes2(uipathnodes) {
+	var nodes_ = [];
+	for (let u=0; u<uipathnodes.length; u++) {
+		nodes_.push(new pointNode(uipathnodes[u]));
+	}
+	for (let c=0; c<nodes_.length; c++) {
+		if (c < nodes_.length - 1) {
+			nodes_[c].next = nodes_[c+1];
+		}
+	}
+	return nodes_;
+}
 
-	gsm.arrayCombinations = await getArrayCombos(gsm.connections);
-	
-	gsm.possiblePathDistances = []; // reset
+async function convertPathsToNodes(uipaths) {
+	var nest = [];
+	for (let u = 0; u<uipaths.length; u++) {
+		nest.push(await buildPointNodes2(uipaths[u]));
+	}
+	return nest;
 
+}
 
-	gsm.arrayCombinations.sort(sortConnectionArrayDistanceMapLambda);	
-	console.log(gsm.arrayCombinations);
-	gsm.possiblePathDistances.sort(sortNumbers);
+async function lambdaPathDistanceSort(a, b) {
+	if (await calculatePathDistance(a) < await(calculatePathDistance(b))) {
+		return 1;
+	}
+	if (await calculatePathDistance(a) > await(calculatePathDistance(b))) {
+		return -1;
+	}
+	return 0;
+}
 
-	var shortestPath = await pathFromConnectionArray(gsm.arrayCombinations[0]);
-	var distanceO = await calculatePathDistance(await buildPointNodes(shortestPath));
-	gsm.totalPathDistance = distanceO;
-	console.log("SHORTEST PATH DISTANCE IS :", shortestPath, distanceO);
-	gsm.shortestPath = shortestPath;
+class Path {
+	constructor(path, dist) {
+		this.path = path; // Array of nodes terminated by null
+		this.distance = dist;
+	}
+}
 
-	document.querySelector('p#pointsBox').innerText = "Solving " + points_.length.toString() + " points.";
-
+async function drawPath(path_) {
+	c.beginPath();
+	console.log(path_, drawPath);
 	var counterDistance2 = 0;
-
-
-	for (let i=0; i < shortestPath.length-1; i++) {
-		startPoint = shortestPath[i];
-		X = startPoint.position.x*dotWindow.width/gridSize;
-		Y = startPoint.position.y*dotWindow.height/gridSize;
-		endPoint = shortestPath[i+1];
-		X2 = endPoint.position.x*dotWindow.width/gridSize;
-		Y2 = endPoint.position.y*dotWindow.height/gridSize;
-		//console.log(startPoint, endPoint, "804");
-		
-		counterDistance2 += distanceFormula(new Point({x: startPoint.position.x, y: startPoint.position.y}), new Point({x: endPoint.position.x, y: endPoint.position.y}));
+	for (let i=0; i < path_.length-1; i++) {
+		startPoint = path_[i];
+		X = startPoint.head.position.x*dotWindow.width/gridSize;
+		Y = startPoint.head.position.y*dotWindow.height/gridSize;
+		endPoint = path_[i+1];
+		X2 = endPoint.head.position.x*dotWindow.width/gridSize;
+		Y2 = endPoint.head.position.y*dotWindow.height/gridSize;
+		console.log(startPoint, endPoint, "804");
+		gsm.possiblePathDistances.sort(sortNumbers);
+		counterDistance2 += distanceFormula(new Point({x: startPoint.head.position.x, y: startPoint.head.position.y}), new Point({x: endPoint.head.position.x, y: endPoint.head.position.y}));
 		document.querySelector("#distanceBox").innerText = counterDistance2.toFixed(4);
 	
 		//
@@ -835,13 +856,53 @@ async function solveTargets() {
 		c.stroke();
 		console.log(gsm.possiblePathDistances);
 		document.querySelector("#distanceBoxPoor").innerText = gsm.possiblePathDistances[gsm.possiblePathDistances.length-1].toFixed(3);
-		document.querySelector("#distanceBoxRich").innerText = distanceO.toFixed(3);
+		document.querySelector("#distanceBoxRich").innerText = gsm.shortestDistance.toFixed(3);
 
 			
 	}
-	enableElementVisibility("startButton");
-	console.log("Counted total distance optimum, ", gsm.totalPathDistance);
+}
 
+async function findShortestPath(nestedPath) {
+	nestedPath.sort(await lambdaPathDistanceSort);
+	gsm.shortestPath = nestedPath[0];
+
+	gsm.shortestDistance = await calculatePathDistance(gsm.shortestPath);
+	gsm.nestedPaths = nestedPath;
+	console.log(nestedPath, "SHORTEST PATH FOUND");
+
+}
+
+var repeats = 0;
+async function solveTargets() {
+	if (repeats<5) {
+		console.log(gsm);
+		console.log(points, "basic points");
+		connectTargets();
+		var nestedPaths = await convertPathsToNodes(await getArrayCombos((await pathFromConnectionArray(gsm.connections.map((conn) => new Connection(conn))))));
+
+		var cachePaths = nestedPaths;
+		console.log(nestedPaths, "nested Paths solvetargets");
+		findShortestPath(nestedPaths); // Assign to GSM...Shortest Point
+		await sleep(1090 + 100*points.length);
+		drawPath(gsm.shortestPath);
+		if (document.querySelector("#distanceBoxPoor").innerText == document.querySelector("#distanceBoxRich").innerText) {
+			if (document.querySelector("#distanceBoxPoor").innerText == document.querySelector("#distanceBoxPoor").innerText)
+			clearLines();
+			await drawTargets(points.length, points);
+
+			await solveTargets();
+			repeats += 1;
+			await drawTargets(points.length, points);
+		}
+	}
+	else {
+		repeats = 0;
+	}
+
+	//nestedPaths.map((uninitializedNodes) => uninitializedNodes.sort(sortPathArrayDistanceMapLambda));
+	//console.log(nestedPaths, "nested Paths 2 solvetargets");
+	//console.log("nestedPaths==cachePaths", nestedPaths==cachePaths);
+		
 }
 
 
@@ -876,7 +937,7 @@ class levelManager {
 	async reloadTargets() {
 		points = this.pts;
 		var colors_ = gsm.currentColors;
-		//drawBoard();
+		drawBoard();
 		await drawTargets(((Math.pow((this.level / MAXLEVEL),2) + 3) * 2), points, colors_);
 
 	}
@@ -890,9 +951,9 @@ class levelManager {
 			points = generatePoints(this.level + 1);
 		}
 		c.clearRect(0, 0, dotWindow.width, dotWindow.height);
-		//await drawBoard();
+		await drawBoard();
 		counterDistance = 0;
-		distanceBox.innerText = counterDistance.toFixed(4);
+		distanceBox.innerText = counterDistance.toFixed(3);
 		drawTargets((Math.pow((this.level / MAXLEVEL),2) + 3) * 2);
 		document.querySelector("#dotLevelTitle").innerText = "Level " + (gsm.level + 1).toString();
 		document.querySelector("#pointsBox").innerText = "Solving " + ((Math.pow((this.level / MAXLEVEL),2) + 3) * 2).toString() + " points.";
@@ -972,15 +1033,14 @@ async function drawLoop() {
 		points = sortByDistance(points);
 		quadrants = [];
 		c.fillStyle = "white";
+		await drawBoard();
+
 		c.clearRect(0, 0, dotWindow.width, dotWindow.height);
-		await sleep(44);
-		//drawBoard();
-		drawTargets(pointsSlider.value);
-		//await sleep(2000);
-		
+		drawTargets(pointsSlider.value, points);
+		gsm.possiblePathDistances = [];
 		await solveTargets();
 		await drawTargets(pointsSlider.value, points);
-		await sleep(5000);
+		await sleep(5000+points.length*100);
 	}	
 }
 
