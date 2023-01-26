@@ -1,6 +1,0 @@
-To Enable Drawing A Temporary Line:
-	1a. Mouse Down
-	1. Get Initial Mouse Position
-	2a. Mouse Up
-	2. Get Last Mouse Position
-	3. Draw line method
