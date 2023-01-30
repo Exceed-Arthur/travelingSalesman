@@ -15,6 +15,7 @@ hideGameButtons();
 class Point {
 	constructor(position) {
 		this.position = position;
+		this.visited = false;
 	}
 }
 
@@ -350,7 +351,9 @@ async function drawNearestConnections(mp) {
 
 document.onmousemove = handleMouseMove;
 async function handleMouseMove(event) {
-	if (gsm.mode == "game") {
+
+	if (gsm.mode == "game" && !lvlMgr.levelSolved) {
+
 	    var eventDoc, doc, body;
 
 	    event = event || window.event; // IE-ism
@@ -390,18 +393,42 @@ async function handleMouseMove(event) {
 					    clearLines();
 					    drawBoard();
 					    lvlMgr.reloadTargets();
-						  await drawTempClosestConnection();
-
+					    if (!gsm.userPath.includes(gsm.closestConnection)) {
+							  await drawTempClosestConnection();
+							}
 						}
 					}
 				}
 		   }
 			var pointo = await getNearestPoint(mouseToGridPos(gsm.currentMousePosition));
+			await drawUserPath();
 	    return gsm.currentMousePosition;
 
 	}
 
 }
+
+
+
+function buildTableData(rowTuples) {
+	var tablearea = document.getElementById('trackSecTable'),
+    table = document.getElementById('trackSection');
+
+	for (var i = 1; i < rowTuples.length; i++) {
+	    var tr = document.createElement('tr');
+
+	    tr.appendChild( document.createElement('td') );
+	    tr.appendChild( document.createElement('td') );
+
+	    tr.cells[0].appendChild( document.createTextNode(rowTuples[i][0]))
+	    tr.cells[1].appendChild( document.createTextNode(rowTuples[i][1]));
+
+	    table.appendChild(tr);
+	}
+
+	tablearea.appendChild(table);
+}
+
 
 
 function hideGameButtons() {
@@ -468,10 +495,16 @@ function handleMouseClover(){ // Click Hover
 function getPointsFromConnections(connections) {
 	var points3 = [];
 	for (let c=0; c<connections.length; c++) {
-		points3.push(connections[c].startPoint);			
-		points3.push(connections[c].endPoint);
+		if (!(points3.includes(connections[c].startPoint))) {
+			points3.push(connections[c].startPoint);			
+		}
+		if (!(points3.includes(connections[c].endPoint))) {
+			points3.push(connections[c].endPoint);
+		}
 	}
-	return new Array(new Set(points3));
+
+	points3.sort(sortPointsByDistanceLambda);
+	return points3;
 	
 }
 
@@ -515,17 +548,6 @@ async function getClosestConnections(pointA) {
 	return conns2;
 }
 
-function handleMouseClick(){ // Click Hover
-	console.log("MOUSE CLICK DETECTED!");
-	gsm.canvai = dotWindow; // Save current state of canvas
-
-
-	//drawTempLineBetweenPoints(gsm.closestConnection.startPoint, gsm.closestConnection.endPoint);	
-	
-}
-
-
-
 
 async function getClosestConnection(x, y) {
 
@@ -534,12 +556,14 @@ async function getClosestConnection(x, y) {
 	var distanceTo_ = 99999999;
 	var closestDeltaDistance = distanceTo_;
 	for (let c=0; c<gsm.connections.length; c++) {
-		var midPoint = getMidPoint(gsm.connections[c].startPoint, gsm.connections[c].endPoint);
-		var distanceTo = distanceFormula(midPoint, compPos);
-		if (distanceTo < closestDeltaDistance) {
-			closestDeltaDistance = distanceTo;
-			closestConnection = gsm.connections[c];
-		}
+		if (c != 0 && (c*2 == gsm.userPath.length+1)) {console.log("SEA BRAIN"); return null}
+			var midPoint = getMidPoint(gsm.connections[c].startPoint, gsm.connections[c].endPoint);
+			var distanceTo = distanceFormula(midPoint, compPos);
+			if (distanceTo < closestDeltaDistance) {
+				closestDeltaDistance = distanceTo;
+				closestConnection = gsm.connections[c];
+
+			}
 	}
 	rectangle_ = document.getElementById("dotWindow").getBoundingClientRect();
 	var minX = rectangle_.x;
@@ -554,10 +578,19 @@ async function getClosestConnection(x, y) {
 	
 }
 
+function filterByVisited(item) {
+	if (!gsm.userPath.includes(item)) {
+		return true;
+	}
+	return false;
+}
+
 async function getClosestConnectionPoint(compPos) {
 	var closestConnection = null;
 	var distanceTo_ = 99999999;
 	var closestDeltaDistance = distanceTo_;
+	let cacheConns = gsm.connections;
+	gsm.connections = cacheConns.filter(filterByVisited);
 	for (let c=0; c<gsm.connections.length; c++) {
 		var midPoint = getMidPoint(gsm.connections[c].startPoint, gsm.connections[c].endPoint);
 		var distanceTo = distanceFormula(midPoint, compPos);
@@ -575,6 +608,7 @@ async function getClosestConnectionPoint(compPos) {
 	var py = ((gsm.currentMousePosition.position.y-minY)/dotWindow.height)*gridSize;
 	var mp1 = gsm.currentMousePosition.position.x;
 	document.querySelector("#mousePosBox").innerText = "Mouse Position: (" + (px.toFixed(2)).toString() + ", " + (py.toFixed(2)).toString() + ")";
+	gsm.connections = cacheConns;
 	return closestConnection;
 	
 }
@@ -738,7 +772,7 @@ function sortNumbers(a, b) {
 
 async function calculatePathDistance(pathNodes) {
 	var totalDistance = 0;
-	console.log(pathNodes, "path Nodes 766");
+	//console.log(pathNodes, "path Nodes 766");
 	for (let p=0; p<pathNodes.length; p++) {
 		if (pathNodes[p].head != null) {
 			if (pathNodes[p].next != null) {
@@ -775,6 +809,7 @@ async function sortConnectionArrayDistanceMapLambda(a, b) {
 }
 
 
+
 async function sortPathArrayDistanceMapLambda(a, b) {
 	// Takes two point (path) array objects
 		console.log(a, b, "804 initial arg sortpath array");
@@ -804,6 +839,8 @@ async function buildPointNodes2(uipathnodes) {
 	return nodes_;
 }
 
+
+
 async function convertPathsToNodes(uipaths) {
 	var nest = [];
 	for (let u = 0; u<uipaths.length; u++) {
@@ -830,9 +867,19 @@ class Path {
 	}
 }
 
-async function drawPath(path_) {
+
+async function convertConnectionsToNodes(connPath) {
+	var nodes = [];
+	let pfca = await pathFromConnectionArray(connPath);
+	let dist = await calculatePathDistance(pfca);
+	let na = await buildPointNodes2(pfca);
+	return na;
+}
+
+
+async function drawPath(path_, color=false) {
 	c.beginPath();
-	console.log(path_, drawPath);
+	//console.log(path_, drawPath);
 	var counterDistance2 = 0;
 	for (let i=0; i < path_.length-1; i++) {
 		startPoint = path_[i];
@@ -841,26 +888,26 @@ async function drawPath(path_) {
 		endPoint = path_[i+1];
 		X2 = endPoint.head.position.x*dotWindow.width/gridSize;
 		Y2 = endPoint.head.position.y*dotWindow.height/gridSize;
-		console.log(startPoint, endPoint, "804");
 		gsm.possiblePathDistances.sort(sortNumbers);
 		counterDistance2 += distanceFormula(new Point({x: startPoint.head.position.x, y: startPoint.head.position.y}), new Point({x: endPoint.head.position.x, y: endPoint.head.position.y}));
 		document.querySelector("#distanceBox").innerText = counterDistance2.toFixed(4);
-	
 		//
 		c.beginPath();
 		c.moveTo(X, Y);
-		await sleep(100);
 		c.lineTo(X2, Y2);
-		var stroked = "#" + randInt(9) + randInt(9) + randInt(9) + randInt(9) + randInt(9) + '0';
+		if (!color) {
+			var stroked = gsm.currentColors[points.indexOf(startPoint)];
+		}
+		
 		c.strokeStyle = stroked;
 		c.stroke();
-		console.log(gsm.possiblePathDistances);
 		document.querySelector("#distanceBoxPoor").innerText = gsm.possiblePathDistances[gsm.possiblePathDistances.length-1].toFixed(3);
 		document.querySelector("#distanceBoxRich").innerText = gsm.shortestDistance.toFixed(3);
 
-			
 	}
+
 }
+
 
 async function findShortestPath(nestedPath) {
 	nestedPath.sort(await lambdaPathDistanceSort);
@@ -874,7 +921,7 @@ async function findShortestPath(nestedPath) {
 
 var repeats = 0;
 async function solveTargets() {
-	if (repeats<5) {
+
 		console.log(gsm);
 		console.log(points, "basic points");
 		connectTargets();
@@ -885,19 +932,7 @@ async function solveTargets() {
 		findShortestPath(nestedPaths); // Assign to GSM...Shortest Point
 		await sleep(1090 + 100*points.length);
 		drawPath(gsm.shortestPath);
-		if (document.querySelector("#distanceBoxPoor").innerText == document.querySelector("#distanceBoxRich").innerText) {
-			if (document.querySelector("#distanceBoxPoor").innerText == document.querySelector("#distanceBoxPoor").innerText)
-			clearLines();
-			await drawTargets(points.length, points);
-
-			await solveTargets();
-			repeats += 1;
-			await drawTargets(points.length, points);
-		}
-	}
-	else {
-		repeats = 0;
-	}
+		await drawTargets(pointsSlider.value, points);
 
 	//nestedPaths.map((uninitializedNodes) => uninitializedNodes.sort(sortPathArrayDistanceMapLambda));
 	//console.log(nestedPaths, "nested Paths 2 solvetargets");
@@ -928,6 +963,7 @@ class levelManager {
 	constructor() {
 		this.level = gsm.level;
 		this.pts = [];
+		this.levelSolved = false;
 	}
 
 	async saveLevelTargets(points___) {
@@ -952,7 +988,7 @@ class levelManager {
 		}
 		c.clearRect(0, 0, dotWindow.width, dotWindow.height);
 		await drawBoard();
-		counterDistance = 0;
+		var counterDistance = 0;
 		distanceBox.innerText = counterDistance.toFixed(3);
 		drawTargets((Math.pow((this.level / MAXLEVEL),2) + 3) * 2);
 		document.querySelector("#dotLevelTitle").innerText = "Level " + (gsm.level + 1).toString();
@@ -978,11 +1014,12 @@ function startNewGame() {
 
 	toggleElementVisibility("pointsCountEmbed");
 	disableElementVisibility("pointsCountEmbed");
-
+	disableElementVisibility("unIdealDistanceBoxWrapper");
+	disableElementVisibility("IdealDistanceBoxWrapper");
 	showGameButtons();
 	gsm.level = 0;
 	enableElementVisibility("dotLevelTitle");
-
+	gsm.userPath = [];
 	lvlMgr = new levelManager();
 	lvlMgr.newLevel();
 	document.querySelector("#modeBox").innerText = "Mode: Active Game"
@@ -1036,10 +1073,15 @@ async function drawLoop() {
 		await drawBoard();
 
 		c.clearRect(0, 0, dotWindow.width, dotWindow.height);
-		drawTargets(pointsSlider.value, points);
+		await drawTargets(pointsSlider.value, points);
+		await sleep(500);
 		gsm.possiblePathDistances = [];
 		await solveTargets();
+		await sleep(500);
+		
 		await drawTargets(pointsSlider.value, points);
+
+		enableElementVisibility("startButton");
 		await sleep(5000+points.length*100);
 	}	
 }
@@ -1047,7 +1089,93 @@ async function drawLoop() {
 
 
 
-drawLoop();
+async function drawUserPath() {
+	//console.log(gsm.userPath);
 
+
+
+
+	await drawPath(await convertConnectionsToNodes(gsm.userPath));
+
+	await drawTargets(pointsSlider.value, points, gsm.currentColors);
+
+
+}
+
+async function allVisited(points_) {
+	console.log("points...visited?", points_);
+	for (let p=0; p < points_.length; p++) {
+		if (points_.visited == false) {
+			console.log("FAILED CHECK LEVEL AT ", points_);
+			return false;
+		}	
+	return true;
+	}
+}
+ 
+
+
+
+async function extractDistances(pathConn) {
+	var distances = [0];
+	for (let d=0; d<pathConn.length; d++) {
+		console.log("FROGFISH");
+		console.log(pathConn[d].distance);
+		distances.push(pathConn[d].distance);
+	}
+	return distances;
+}
+
+
+async function getTableData() {
+	console.log(gsm.userPath);
+	var points_ = getPointsFromConnections(gsm.userPath);
+	var distances = await extractDistances(gsm.userPath);
+	console.log(distances);
+	console.log(points_);
+	var tupes = [];
+	for (let p=0; p<points_.length; p++) {
+		array1 = [];
+		array1.push("(" + points_[p].position.x + ", " + points_[p].position.y + ")");
+		array1.push(distances[p].toFixed(4)); 
+		console.log(array1);
+		tupes.push(array1);
+	}
+	console.log(tupes);
+}
+
+async function handleGameClick() {
+	await(drawBoard());
+	if (!(gsm.closestConnection.startPoint.visited && gsm.closestConnection.endPoint.visited)) {
+		gsm.userPath.push(gsm.closestConnection);
+		gsm.closestConnection.startPoint.visited = true;
+		gsm.closestConnection.endPoint.visited = true;		
+		await getTableData();
+	}
+
+	
+
+
+
+	await drawUserPath();
+	
+	if ((gsm.userPath.length + 1) == points.length) {
+		if (allVisited(await getPointsFromConnections(gsm.userPath) == true)) {
+			lvlMgr.levelSolved = true;
+			console.log("LEVEL IS SOLVED! :)");
+		}
+	}
+
+	gsm.totalPathDistance = await calculatePathDistance(gsm.userPath);
+	document.querySelector("#distanceBox").innerText = gsm.totalPathDistance.toFixed(4)	
+}
+
+async function handleLevelSolve() {
+
+
+}
+
+
+drawLoop();
 
 

@@ -5,7 +5,7 @@
 		<div id="dotLevelTitle" style="display: none;">
 			Level
 		</div>
-	<canvas id="dotWindow">
+	<canvas id="dotWindow" onclick="handleGameClick();">
 
 	</canvas>
 	<div id="GameSideBar">
@@ -13,7 +13,7 @@
 		<div class="pointsCountSelector">
 			<div id="pointsCountEmbed">
 				<p>Number of Points:</p>
-			    <input type="range" min="1" max="100" value="5" class="slider" id="pointsRange">
+			    <input type="range" min="1" max="100" value="4" class="slider" id="pointsRange">
 			    <p id="pointsBox2">9.9</p>
 			</div>
 		</div>
@@ -22,6 +22,16 @@
 		<div id="distanceBoxWrapper">
 			<p>Distance Traveled:<p>
 			<p id="distanceBox">0.0</p>
+		</div>
+
+		<div id="unIdealDistanceBoxWrapper">
+			<p>Slowest path (distance): <p>
+			<p id="distanceBoxPoor">0.0</p>
+		</div>
+
+		<div id="IdealDistanceBoxWrapper">
+			<p>Fastest path (distance): <p>
+			<p id="distanceBoxRich">0.0</p>
 		</div>
 
 		<p id="modeBox">Mode: Auto-Solve</p>
@@ -37,12 +47,12 @@
 			<table id="trackSection">
 				<tr style="display: inline-flex;">
 					<td id="trackSectionTitle">Visited Locations</td>
-					<td id="trackSectionTitle2">Distance</td>				
+					<td style="padding-left: 4rem;" id="trackSectionTitle2">Distance</td>				
 				</tr>
 			</table>
 		</div>
 		<div id="buttonsStarterPack">
-			<button id="startButton" style="display:none;" onclick="startNewGame()">Start New Game</button>
+			<button id="startButton" onclick="startNewGame()">Start New Game</button>
 			<button id="exposeConnections" onmousedown="handleMouseClover()" onmouseup="handleMouseUp()">View Connections</button>
 		</div>
 
